@@ -1,98 +1,68 @@
 package com.example.myapplication;
 
 import android.os.Bundle;
-import android.view.View;
+import android.util.Log;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.navigation.NavController;
-import androidx.navigation.Navigation;
-import androidx.navigation.ui.AppBarConfiguration;
-import androidx.navigation.ui.NavigationUI;
 
 import com.example.myapplication.databinding.ActivityMainBinding;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 /**
  * 主活动 (Activity)
  *
- * 应用的入口活动，包含底部导航栏和Fragment容器
+ * 应用的入口活动，包含登录和注册Fragment容器
  */
 public class MainActivity extends AppCompatActivity {
 
-    private AppBarConfiguration appBarConfiguration;
+    private static final String TAG = "MainActivity";
     private ActivityMainBinding binding;
-    private BottomNavigationView bottomNavigationView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        binding = ActivityMainBinding.inflate(getLayoutInflater());
-        setContentView(binding.getRoot());
+        try {
+            Log.d(TAG, "MainActivity onCreate 开始");
 
-        // 设置底部导航栏
-        setupBottomNavigation();
+            // 绑定布局
+            binding = ActivityMainBinding.inflate(getLayoutInflater());
+            setContentView(binding.getRoot());
 
-        // 检查登录状态，决定显示哪个页面
-        checkLoginStatus();
-    }
+            Log.d(TAG, "布局设置成功");
 
-    private void setupBottomNavigation() {
-        bottomNavigationView = binding.bottomNavigation;
+            // 检查登录状态，决定显示哪个页面
+            checkLoginStatus();
 
-        // 获取NavController
-        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
-
-        // 配置顶部级别的目的地
-        appBarConfiguration = new AppBarConfiguration.Builder(
-                R.id.homeFragment,
-                R.id.statisticsFragment,
-                R.id.profileFragment
-        ).build();
-
-        // 设置底部导航与NavController联动
-        NavigationUI.setupWithNavController(bottomNavigationView, navController);
-
-        // 监听导航变化，控制底部导航栏显示
-        navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
-            if (destination.getId() == R.id.loginFragment ||
-                    destination.getId() == R.id.registerFragment) {
-                // 登录/注册页面隐藏底部导航
-                bottomNavigationView.setVisibility(View.GONE);
-            } else {
-                // 其他页面显示底部导航
-                bottomNavigationView.setVisibility(View.VISIBLE);
-            }
-        });
-    }
-
-    private void checkLoginStatus() {
-        // 检查用户是否已登录
-        boolean isLoggedIn = com.example.myapplication.utils.SharedPreferencesManager
-                .getInstance(this).isLoggedIn();
-
-        if (!isLoggedIn) {
-            // 未登录，隐藏底部导航并导航到登录页
-            setBottomNavigationVisible(false);
-            NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
-            navController.navigate(R.id.loginFragment);
+            Log.d(TAG, "MainActivity onCreate 完成");
+        } catch (Exception e) {
+            Log.e(TAG, "MainActivity 启动失败", e);
+            e.printStackTrace();
         }
     }
 
-    /**
-     * 设置底部导航栏可见性
-     */
-    public void setBottomNavigationVisible(boolean visible) {
-        if (bottomNavigationView != null) {
-            bottomNavigationView.setVisibility(visible ? View.VISIBLE : View.GONE);
+    private void checkLoginStatus() {
+        try {
+            // 检查用户是否已登录
+            boolean isLoggedIn = com.example.myapplication.utils.SharedPreferencesManager
+                    .getInstance(this).isLoggedIn();
+
+            Log.d(TAG, "登录状态: " + isLoggedIn);
+
+            if (!isLoggedIn) {
+                // 未登录，导航到登录页
+                // 注意：导航会在布局完全加载后自动进行，因为 nav_graph 的 startDestination 是 loginFragment
+                Log.d(TAG, "用户未登录，将显示登录页面");
+            } else {
+                Log.d(TAG, "用户已登录");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "检查登录状态失败", e);
         }
     }
 
     @Override
-    public boolean onSupportNavigateUp() {
-        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
-        return NavigationUI.navigateUp(navController, appBarConfiguration)
-                || super.onSupportNavigateUp();
+    protected void onDestroy() {
+        super.onDestroy();
+        binding = null;
     }
 }

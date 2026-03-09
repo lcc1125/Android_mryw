@@ -29,6 +29,10 @@ MyApplication/
 │   │       │       ├── ui/        # UI层（界面相关）
 │   │       │       │   └── auth/  # 认证界面
 │   │       │       ├── data/      # 数据层
+│   │       │       │   ├── local/    # 本地数据
+│   │       │       │   ├── model/    # 数据模型
+│   │       │       │   ├── remote/   # 网络请求
+│   │       │       │   └── repository/ # 数据仓库
 │   │       │       └── utils/     # 工具类
 │   │       ├── res/               # 资源文件
 │   │       │   ├── layout/        # 布局文件（XML）
@@ -44,13 +48,51 @@ MyApplication/
 | 文件路径 | 作用 |
 |---------|------|
 | `ui/auth/LoginFragment.java` | 登录界面的核心代码 |
-| `ui/auth/AuthViewModel.java` | 登录业务逻辑处理 |
-| `data/repository/AuthRepository.java` | 登录数据仓库 |
+| `ui/auth/RegisterFragment.java` | 注册界面的核心代码 |
+| `ui/auth/AuthViewModel.java` | 登录/注册业务逻辑处理 |
+| `data/repository/AuthRepository.java` | 认证数据仓库 |
 | `data/remote/AuthApiService.java` | 登录API接口定义 |
 | `data/model/LoginRequest.java` | 登录请求数据模型 |
+| `data/model/RegisterRequest.java` | 注册请求数据模型 |
+| `data/model/User.java` | 用户数据模型 |
 | `res/layout/fragment_login.xml` | 登录界面布局 |
+| `res/layout/fragment_register.xml` | 注册界面布局 |
 | `res/navigation/nav_graph.xml` | 页面导航配置 |
-| `MainActivity.java` | 应用主活动 |
+| `MainActivity.java` | 应用主活动（容器） |
+
+### 1.3 项目文件清单
+
+**UI层（界面）**
+- `MainActivity.java` - 主活动，作为Fragment容器
+- `LoginFragment.java` - 登录页面
+- `RegisterFragment.java` - 注册页面
+- `AuthViewModel.java` - 认证相关的ViewModel
+
+**数据层（数据）**
+- `AuthRepository.java` - 认证数据仓库
+- `AuthApiService.java` - 认证API服务接口
+- `UserApiService.java` - 用户API服务接口
+- `ApiClient.java` - Retrofit客户端配置
+
+**数据模型**
+- `User.java` - 用户数据模型
+- `LoginRequest.java` - 登录请求模型
+- `RegisterRequest.java` - 注册请求模型
+- `ApiResponse.java` - API响应通用模型
+- `UserEntity.java` - 用户实体（数据库）
+- `UserDao.java` - 用户数据访问对象
+- `AppDatabase.java` - Room数据库配置
+
+**工具类**
+- `SharedPreferencesManager.java` - SharedPreferences管理工具
+
+**布局文件**
+- `activity_main.xml` - 主活动布局
+- `fragment_login.xml` - 登录页面布局
+- `fragment_register.xml` - 注册页面布局
+
+**导航配置**
+- `nav_graph.xml` - 导航图（登录与注册之间的跳转）
 
 ---
 
@@ -64,6 +106,7 @@ MyApplication/
 // MainActivity.java - 应用的主入口
 public class MainActivity extends AppCompatActivity {
     // 应用启动时首先执行这个Activity
+    // 本项目中作为Fragment容器使用
 }
 ```
 
@@ -77,6 +120,7 @@ public class MainActivity extends AppCompatActivity {
 // LoginFragment.java - 登录界面片段
 public class LoginFragment extends Fragment {
     // Fragment有自己的生命周期和布局
+    // 可以独立管理UI逻辑
 }
 ```
 
@@ -115,7 +159,7 @@ ViewGroup (ConstraintLayout)
 TextView tvTitle = (TextView) findViewById(R.id.tvTitle);
 
 // ViewBinding方式（项目使用的方式）
-binding.tvTitle.setText("每日一练");
+binding.tvTitle.setText("欢迎登录");
 ```
 
 ### 2.6 ViewModel（视图模型）
@@ -125,6 +169,7 @@ binding.tvTitle.setText("每日一练");
 ```java
 public class AuthViewModel extends AndroidViewModel {
     // 存储UI数据，屏幕旋转时数据不会丢失
+    // 处理业务逻辑，不持有UI引用
 }
 ```
 
@@ -155,7 +200,8 @@ viewModel.getUserLiveData().observe(getViewLifecycleOwner(), user -> {
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                      View (视图层)                        │
-│              LoginFragment + XML Layout                  │
+│         LoginFragment + RegisterFragment                │
+│              + XML Layout                                │
 │         负责界面显示、用户交互、观察数据变化                │
 └────────────────────┬────────────────────────────────────┘
                      │ 观察 LiveData
@@ -276,12 +322,6 @@ public void onViewCreated(@NonNull View view,
     // 获取ViewModel实例
     viewModel = new ViewModelProvider(this).get(AuthViewModel.class);
 
-    // 检查是否已登录
-    if (viewModel.isLoggedIn()) {
-        navigateToHome();
-        return;
-    }
-
     // 设置视图和观察数据
     setupViews();
     observeViewModel();
@@ -372,7 +412,7 @@ private void observeViewModel() {
     viewModel.getUserLiveData().observe(getViewLifecycleOwner(), user -> {
         Toast.makeText(getContext(), "登录成功！欢迎 " + user.getNickname(),
                 Toast.LENGTH_SHORT).show();
-        navigateToHome();
+        // 登录成功后可以在这里添加后续逻辑
     });
 
     // 观察错误信息 - 失败
@@ -404,13 +444,35 @@ ViewModel中的数据变化
 
 ---
 
-### 4.2 fragment_login.xml (布局文件)
+### 4.2 RegisterFragment.java (注册界面)
+
+**文件位置**: `app/src/main/java/com/example/myapplication/ui/auth/RegisterFragment.java`
+
+注册界面的实现与登录界面类似，主要区别在于：
+- 需要收集更多信息（用户名、邮箱、昵称、密码、确认密码）
+- 表单验证更复杂（需要验证邮箱格式、两次密码是否一致）
+- 调用`register()`方法而不是`login()`
+- 注册成功后跳转到登录页面
+
+**注册成功后的导航**：
+```java
+viewModel.getUserLiveData().observe(getViewLifecycleOwner(), user -> {
+    Toast.makeText(getContext(), "注册成功！欢迎 " + user.getNickname(),
+            Toast.LENGTH_SHORT).show();
+    // 注册成功后跳转到登录页
+    navController.navigate(R.id.action_registerFragment_to_loginFragment);
+});
+```
+
+---
+
+### 4.3 fragment_login.xml (布局文件)
 
 **文件位置**: `app/src/main/res/layout/fragment_login.xml`
 
 这是登录界面的布局定义，使用XML语言描述界面结构。
 
-#### 4.2.1 根布局 - ConstraintLayout
+#### 4.3.1 根布局 - ConstraintLayout
 
 ```xml
 <androidx.constraintlayout.widget.ConstraintLayout
@@ -428,36 +490,7 @@ ViewModel中的数据变化
 - `padding="24dp"`: 内边距24dp（density-independent pixels）
 - `tools:context`: 关联的Fragment类
 
-#### 4.2.2 标题组件
-
-```xml
-<!-- 主标题 -->
-<TextView
-    android:id="@+id/tvTitle"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:text="每日一练"
-    android:textSize="32sp"
-    android:textStyle="bold"
-    android:textColor="?attr/colorPrimary"
-    app:layout_constraintTop_toTopOf="parent"
-    app:layout_constraintStart_toStartOf="parent"
-    app:layout_constraintEnd_toEndOf="parent"
-    android:layout_marginTop="48dp"/>
-```
-
-**ConstraintLayout约束说明**：
-```
-┌─────────────────────────────────────┐
-│           ┌───────┐                 │
-│           │ 每日一练│  ← tvTitle     │
-│           └───────┘                 │
-│     ↑                ↑              │
-│ 约束到左边        约束到右边        │
-└─────────────────────────────────────┘
-```
-
-#### 4.2.3 用户名输入框
+#### 4.3.2 用户名输入框
 
 ```xml
 <!-- Material Design风格的输入框 -->
@@ -493,7 +526,7 @@ TextInputLayout (外层容器)
 └── TextInputEditText (实际输入框)
 ```
 
-#### 4.2.4 密码输入框
+#### 4.3.3 密码输入框
 
 ```xml
 <com.google.android.material.textfield.TextInputLayout
@@ -517,7 +550,7 @@ TextInputLayout (外层容器)
 | `number` | 仅数字 |
 | `email` | 邮箱格式 |
 
-#### 4.2.5 登录按钮
+#### 4.3.4 登录按钮
 
 ```xml
 <com.google.android.material.button.MaterialButton
@@ -533,7 +566,7 @@ TextInputLayout (外层容器)
     android:layout_marginTop="24dp"/>
 ```
 
-#### 4.2.6 进度指示器
+#### 4.3.5 进度指示器
 
 ```xml
 <!-- 加载状态显示 -->
@@ -551,13 +584,13 @@ TextInputLayout (外层容器)
 
 ---
 
-### 4.3 AuthViewModel.java (业务逻辑层)
+### 4.4 AuthViewModel.java (业务逻辑层)
 
 **文件位置**: `app/src/main/java/com/example/myapplication/ui/auth/AuthViewModel.java`
 
 ViewModel是连接UI和数据层的桥梁。
 
-#### 4.3.1 类结构
+#### 4.4.1 类结构
 
 ```java
 public class AuthViewModel extends AndroidViewModel {
@@ -567,7 +600,6 @@ public class AuthViewModel extends AndroidViewModel {
     private final MutableLiveData<User> userLiveData = new MutableLiveData<>();
     private final MutableLiveData<String> errorLiveData = new MutableLiveData<>();
     private final MutableLiveData<Boolean> loadingLiveData = new MutableLiveData<>();
-    private final MutableLiveData<Boolean> logoutSuccessLiveData = new MutableLiveData<>();
 
     public AuthViewModel(@NonNull Application application) {
         super(application);
@@ -580,12 +612,11 @@ public class AuthViewModel extends AndroidViewModel {
 
 | LiveData变量 | 数据类型 | 用途 |
 |-------------|---------|------|
-| `userLiveData` | User | 登录成功后的用户信息 |
+| `userLiveData` | User | 登录/注册成功后的用户信息 |
 | `errorLiveData` | String | 错误提示信息 |
 | `loadingLiveData` | Boolean | 是否正在加载 |
-| `logoutSuccessLiveData` | Boolean | 登出是否成功 |
 
-#### 4.3.2 login() 方法
+#### 4.4.2 login() 方法
 
 ```java
 public void login(String username, String password) {
@@ -621,46 +652,37 @@ public void login(String username, String password) {
 失败 → onError() 执行
 ```
 
-#### 4.3.3 isLoggedIn() 方法
+#### 4.4.3 register() 方法
 
 ```java
-public boolean isLoggedIn() {
-    return authRepository.isLoggedIn();
+public void register(String username, String password, String email, String nickname) {
+    loadingLiveData.setValue(true);
+
+    authRepository.register(username, password, email, nickname, new AuthRepository.AuthCallback<User>() {
+        @Override
+        public void onSuccess(User data) {
+            loadingLiveData.setValue(false);
+            userLiveData.setValue(data);
+        }
+
+        @Override
+        public void onError(String message) {
+            loadingLiveData.setValue(false);
+            errorLiveData.setValue(message);
+        }
+    });
 }
 ```
-
-这个方法检查本地是否存储了有效的登录信息。
-
-#### 4.3.4 LiveData Getter方法
-
-```java
-public MutableLiveData<User> getUserLiveData() {
-    return userLiveData;
-}
-
-public MutableLiveData<String> getErrorLiveData() {
-    return errorLiveData;
-}
-
-public MutableLiveData<Boolean> getLoadingLiveData() {
-    return loadingLiveData;
-}
-```
-
-**为什么使用Getter而不是直接访问？**
-- 遵循封装原则
-- 可以在Getter中添加额外逻辑
-- 便于后续修改实现
 
 ---
 
-### 4.4 AuthRepository.java (数据仓库层)
+### 4.5 AuthRepository.java (数据仓库层)
 
 **文件位置**: `app/src/main/java/com/example/myapplication/data/repository/AuthRepository.java`
 
 Repository层负责协调数据源（网络API、本地数据库、SharedPreferences）。
 
-#### 4.4.1 类结构
+#### 4.5.1 类结构
 
 ```java
 public class AuthRepository {
@@ -685,7 +707,7 @@ public class AuthRepository {
 | `AuthApiService` | Retrofit网络请求 | 与后端API通信 |
 | `SharedPreferencesManager` | SharedPreferences | 存储登录状态、Token等轻量数据 |
 
-#### 4.4.2 login() 方法
+#### 4.5.2 login() 方法
 
 ```java
 public void login(String username, String password, AuthCallback<User> callback) {
@@ -732,7 +754,7 @@ public void login(String username, String password, AuthCallback<User> callback)
 | `onResponse` | 收到HTTP响应（无论状态码是200还是404） |
 | `onFailure` | 网络请求失败（无网络、连接超时等） |
 
-#### 4.4.3 saveUserLocally() 方法
+#### 4.5.3 saveUserLocally() 方法
 
 ```java
 private void saveUserLocally(User user, String token) {
@@ -764,7 +786,7 @@ private void saveUserLocally(User user, String token) {
 
 ---
 
-### 4.5 AuthApiService.java (网络API层)
+### 4.6 AuthApiService.java (网络API层)
 
 **文件位置**: `app/src/main/java/com/example/myapplication/data/remote/AuthApiService.java`
 
@@ -819,7 +841,9 @@ Content-Type: application/json
 
 ---
 
-### 4.6 LoginRequest.java (数据模型)
+### 4.7 数据模型类
+
+#### 4.7.1 LoginRequest.java
 
 **文件位置**: `app/src/main/java/com/example/myapplication/data/model/LoginRequest.java`
 
@@ -866,46 +890,92 @@ private String username;
 LoginRequest request = new Gson().fromJson(jsonString, LoginRequest.class);
 ```
 
----
+#### 4.7.2 RegisterRequest.java
 
-### 4.7 MainActivity.java (主活动)
-
-**文件位置**: `app/src/main/java/com/example/myapplication/MainActivity.java`
-
-应用的入口点，负责初始化和检查登录状态。
-
-#### 4.7.1 onCreate() 方法
+**文件位置**: `app/src/main/java/com/example/myapplication/data/model/RegisterRequest.java`
 
 ```java
-@Override
-protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
+public class RegisterRequest {
+    @SerializedName("username")
+    private String username;
 
-    // 绑定布局
-    binding = ActivityMainBinding.inflate(getLayoutInflater());
-    setContentView(binding.getRoot());
+    @SerializedName("password")
+    private String password;
 
-    // 设置底部导航栏
-    setupBottomNavigation();
+    @SerializedName("email")
+    private String email;
 
-    // 检查登录状态
-    checkLoginStatus();
+    @SerializedName("nickname")
+    private String nickname;
+
+    // 构造函数和Getter/Setter方法...
 }
 ```
 
-#### 4.7.2 checkLoginStatus() 方法
+#### 4.7.3 User.java
+
+**文件位置**: `app/src/main/java/com/example/myapplication/data/model/User.java`
 
 ```java
-private void checkLoginStatus() {
-    // 检查用户是否已登录
-    boolean isLoggedIn = SharedPreferencesManager
-            .getInstance(this).isLoggedIn();
+public class User {
+    @SerializedName("id")
+    private Long id;
 
-    if (!isLoggedIn) {
-        // 未登录，隐藏底部导航并导航到登录页
-        setBottomNavigationVisible(false);
-        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
-        navController.navigate(R.id.loginFragment);
+    @SerializedName("username")
+    private String username;
+
+    @SerializedName("email")
+    private String email;
+
+    @SerializedName("nickname")
+    private String nickname;
+
+    @SerializedName("avatar")
+    private String avatar;
+
+    @SerializedName("token")
+    private String token;
+
+    // Getter和Setter方法...
+}
+```
+
+---
+
+### 4.8 MainActivity.java (主活动)
+
+**文件位置**: `app/src/main/java/com/example/myapplication/MainActivity.java`
+
+应用的入口点，作为Fragment容器。
+
+#### 4.8.1 类结构
+
+```java
+public class MainActivity extends AppCompatActivity {
+    private ActivityMainBinding binding;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // 绑定布局
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+
+        // 检查登录状态
+        checkLoginStatus();
+    }
+
+    private void checkLoginStatus() {
+        // 检查用户是否已登录
+        boolean isLoggedIn = SharedPreferencesManager
+                .getInstance(this).isLoggedIn();
+
+        if (!isLoggedIn) {
+            // 未登录，导航到登录页
+            NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
+            navController.navigate(R.id.loginFragment);
+        }
     }
 }
 ```
@@ -917,7 +987,7 @@ private void checkLoginStatus() {
     ↓
 检查SharedPreferences中的登录状态
     ↓
-已登录？ → 是 → 显示主界面
+已登录？ → 是 → 可以添加后续页面逻辑
     ↓
    否
     ↓
@@ -926,33 +996,51 @@ private void checkLoginStatus() {
 
 ---
 
-### 4.8 nav_graph.xml (导航配置)
+### 4.9 nav_graph.xml (导航配置)
 
 **文件位置**: `app/src/main/res/navigation/nav_graph.xml`
 
 使用Navigation Component管理页面导航。
 
-#### 4.8.1 登录Fragment配置
+#### 4.9.1 导航图结构
 
 ```xml
-<fragment
-    android:id="@+id/loginFragment"
-    android:name="com.example.myapplication.ui.auth.LoginFragment"
-    android:label="登录"
-    tools:layout="@layout/fragment_login">
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            xmlns:tools="http://schemas.android.com/tools"
+            android:id="@+id/nav_graph"
+            app:startDestination="@id/loginFragment">
 
-    <!-- 导航到注册页 -->
-    <action
-        android:id="@+id/action_loginFragment_to_registerFragment"
-        app:destination="@id/registerFragment"/>
+    <!-- 登录Fragment -->
+    <fragment
+        android:id="@+id/loginFragment"
+        android:name="com.example.myapplication.ui.auth.LoginFragment"
+        android:label="登录"
+        tools:layout="@layout/fragment_login">
 
-    <!-- 导航到主页 -->
-    <action
-        android:id="@+id/action_loginFragment_to_homeFragment"
-        app:destination="@id/homeFragment"
-        app:popUpTo="@id/loginFragment"
-        app:popUpToInclusive="true"/>
-</fragment>
+        <!-- 导航到注册页 -->
+        <action
+            android:id="@+id/action_loginFragment_to_registerFragment"
+            app:destination="@id/registerFragment"/>
+    </fragment>
+
+    <!-- 注册Fragment -->
+    <fragment
+        android:id="@+id/registerFragment"
+        android:name="com.example.myapplication.ui.auth.RegisterFragment"
+        android:label="注册"
+        tools:layout="@layout/fragment_register">
+
+        <!-- 注册成功后返回登录页 -->
+        <action
+            android:id="@+id/action_registerFragment_to_loginFragment"
+            app:destination="@id/loginFragment"
+            app:popUpTo="@id/loginFragment"
+            app:popUpToInclusive="true"/>
+    </fragment>
+
+</navigation>
 ```
 
 **Action属性说明**：
@@ -962,6 +1050,22 @@ private void checkLoginStatus() {
 | `app:destination` | 目标Fragment |
 | `app:popUpTo` | 返回栈清理到哪里 |
 | `app:popUpToInclusive` | 是否包含目标本身 |
+
+**导航流程**：
+
+```
+应用启动
+    ↓
+登录页面 (loginFragment) [起始页面]
+    ↓
+点击"注册"
+    ↓
+注册页面 (registerFragment)
+    ↓
+注册成功
+    ↓
+返回登录页面 (loginFragment)
+```
 
 ---
 
@@ -1055,11 +1159,31 @@ private void checkLoginStatus() {
 │ Step 12: LiveData通知UI更新                                    │
 │  - getUserLiveData.observe() 代码执行                        │
 │  - 显示"登录成功"提示                                         │
-│  - navigateToHome() 导航到主页                                │
+│  - 可以在此处添加跳转到主页的逻辑                              │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### 5.2 错误处理流程
+### 5.2 注册流程
+
+```
+用户输入注册信息（用户名、邮箱、昵称、密码、确认密码）
+    ↓
+表单验证（验证非空、邮箱格式、密码一致性等）
+    ↓
+调用 viewModel.register()
+    ↓
+AuthRepository 发起注册请求
+    ↓
+后端创建新用户
+    ↓
+保存用户信息到本地
+    ↓
+UI显示"注册成功"提示
+    ↓
+自动跳转到登录页面
+```
+
+### 5.3 错误处理流程
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -1183,12 +1307,12 @@ onAttach() → onCreate() → onCreateView() → onViewCreated()
 **基本用法**：
 ```java
 // 导航到目标Fragment
-navController.navigate(R.id.action_loginFragment_to_homeFragment);
+navController.navigate(R.id.action_loginFragment_to_registerFragment);
 
 // 带参数导航
 Bundle bundle = new Bundle();
 bundle.putString("userId", "123");
-navController.navigate(R.id.action_loginFragment_to_homeFragment, bundle);
+navController.navigate(R.id.action_xxx_to_yyy, bundle);
 ```
 
 ---
@@ -1242,7 +1366,7 @@ prefsManager.setLoggedIn(true);
 
 // 检查登录状态
 if (prefsManager.isLoggedIn()) {
-    // 已登录，直接进入主页
+    // 已登录，可以跳转到主页
 }
 ```
 
@@ -1271,18 +1395,41 @@ authApiService.login(request).enqueue(callback);
 
 ---
 
+### Q11: 本项目为什么只包含登录和注册功能？
+
+**A**: 本项目专注于演示Android登录功能的实现，是一个精简的学习项目。主要特点：
+
+1. **代码简洁**: 只包含核心登录功能，易于理解
+2. **架构清晰**: 完整的MVVM架构展示
+3. **易于扩展**: 可以在此基础上添加更多功能（如主页、个人中心等）
+
+**如果需要添加更多功能，可以**：
+- 在导航图中添加新的Fragment
+- 创建对应的ViewModel和布局文件
+- 实现新的Repository和API服务
+
+---
+
 ## 附录A: 关键类速查表
 
 | 类名 | 位置 | 作用 |
 |------|------|------|
+| `MainActivity` | 根目录 | 主活动，Fragment容器 |
 | `LoginFragment` | `ui/auth/` | 登录界面 |
-| `AuthViewModel` | `ui/auth/` | 登录业务逻辑 |
-| `AuthRepository` | `data/repository/` | 数据仓库 |
-| `AuthApiService` | `data/remote/` | API接口 |
+| `RegisterFragment` | `ui/auth/` | 注册界面 |
+| `AuthViewModel` | `ui/auth/` | 登录/注册业务逻辑 |
+| `AuthRepository` | `data/repository/` | 认证数据仓库 |
+| `AuthApiService` | `data/remote/` | 认证API接口 |
+| `UserApiService` | `data/remote/` | 用户API接口 |
+| `ApiClient` | `data/remote/` | Retrofit客户端配置 |
 | `LoginRequest` | `data/model/` | 登录请求模型 |
+| `RegisterRequest` | `data/model/` | 注册请求模型 |
 | `User` | `data/model/` | 用户数据模型 |
+| `ApiResponse` | `data/model/` | API响应通用模型 |
+| `UserEntity` | `data/local/entity/` | 用户实体（数据库） |
+| `UserDao` | `data/local/dao/` | 用户数据访问对象 |
+| `AppDatabase` | `data/local/` | Room数据库配置 |
 | `SharedPreferencesManager` | `utils/` | SharedPreferences管理 |
-| `ApiClient` | `data/remote/` | Retrofit客户端 |
 
 ---
 
@@ -1302,6 +1449,7 @@ authApiService.login(request).enqueue(callback);
 | `SharedPreferences` | 轻量级存储 |
 | `Navigation Component` | 页面导航管理 |
 | `ViewBinding` | 视图绑定技术 |
+| `MVVM` | Model-View-ViewModel架构 |
 
 ---
 
@@ -1311,6 +1459,7 @@ authApiService.login(request).enqueue(callback);
 - [Android Developers](https://developer.android.com/)
 - [Jetpack ViewModel](https://developer.android.com/topic/libraries/architecture/viewmodel)
 - [Navigation Component](https://developer.android.com/guide/navigation)
+- [Room Database](https://developer.android.com/training/data-storage/room)
 
 ### 推荐课程
 - Android官方基础课程
@@ -1320,9 +1469,11 @@ authApiService.login(request).enqueue(callback);
 ### 练习建议
 1. 修改登录界面的UI样式
 2. 添加"记住密码"功能
-3. 添加第三方登录（微信、QQ等）
-4. 实现生物识别登录（指纹、面部识别）
+3. 添加"忘记密码"功能
+4. 实现第三方登录（微信、QQ等）
+5. 实现生物识别登录（指纹、面部识别）
+6. 添加主页功能，登录成功后跳转
 
 ---
 
-*本文档由AI自动生成，基于项目实际代码编写。如有疑问，请参考代码注释或查阅Android官方文档。*
+*本文档基于项目实际代码编写，专注于登录和注册功能的实现。*

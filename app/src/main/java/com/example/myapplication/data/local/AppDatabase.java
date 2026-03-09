@@ -6,11 +6,7 @@ import androidx.room.Database;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
 
-import com.example.myapplication.data.local.dao.AnswerRecordDao;
-import com.example.myapplication.data.local.dao.QuestionDao;
 import com.example.myapplication.data.local.dao.UserDao;
-import com.example.myapplication.data.local.entity.AnswerRecordEntity;
-import com.example.myapplication.data.local.entity.QuestionEntity;
 import com.example.myapplication.data.local.entity.UserEntity;
 
 /**
@@ -18,9 +14,7 @@ import com.example.myapplication.data.local.entity.UserEntity;
  */
 @Database(
     entities = {
-        UserEntity.class,
-        QuestionEntity.class,
-        AnswerRecordEntity.class
+        UserEntity.class
     },
     version = 1,
     exportSchema = false
@@ -60,6 +54,4 @@ public abstract class AppDatabase extends RoomDatabase {
 
     // 获取DAO
     public abstract UserDao userDao();
-    public abstract QuestionDao questionDao();
-    public abstract AnswerRecordDao answerRecordDao();
 }

@@ -15,7 +15,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 
-import com.example.myapplication.MainActivity;
+import com.example.myapplication.R;
 import com.example.myapplication.databinding.FragmentRegisterBinding;
 import com.google.android.material.snackbar.Snackbar;
 
@@ -62,7 +62,7 @@ public class RegisterFragment extends Fragment {
 
         // 登录链接点击事件
         binding.tvLogin.setOnClickListener(v -> {
-            navController.navigateUp();
+            navController.navigate(R.id.action_registerFragment_to_loginFragment);
         });
     }
 
@@ -71,11 +71,8 @@ public class RegisterFragment extends Fragment {
         viewModel.getUserLiveData().observe(getViewLifecycleOwner(), user -> {
             Toast.makeText(getContext(), "注册成功！欢迎 " + user.getNickname(),
                     Toast.LENGTH_SHORT).show();
-            // 设置主Activity的底部导航可见
-            if (getActivity() instanceof MainActivity) {
-                ((MainActivity) getActivity()).setBottomNavigationVisible(true);
-            }
-            navController.navigate(R.id.action_registerFragment_to_homeFragment);
+            // 注册成功后跳转到登录页
+            navController.navigate(R.id.action_registerFragment_to_loginFragment);
         });
 
         // 观察错误信息

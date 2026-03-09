@@ -14,7 +14,6 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 
-import com.example.myapplication.MainActivity;
 import com.example.myapplication.R;
 import com.example.myapplication.databinding.FragmentLoginBinding;
 import com.google.android.material.snackbar.Snackbar;
@@ -43,12 +42,6 @@ public class LoginFragment extends Fragment {
         navController = Navigation.findNavController(view);
         viewModel = new ViewModelProvider(this).get(AuthViewModel.class);
 
-        // 检查是否已登录
-        if (viewModel.isLoggedIn()) {
-            navigateToHome();
-            return;
-        }
-
         setupViews();
         observeViewModel();
     }
@@ -75,7 +68,7 @@ public class LoginFragment extends Fragment {
         viewModel.getUserLiveData().observe(getViewLifecycleOwner(), user -> {
             Toast.makeText(getContext(), "登录成功！欢迎 " + user.getNickname(),
                     Toast.LENGTH_SHORT).show();
-            navigateToHome();
+            // 登录成功后可以在这里添加后续逻辑
         });
 
         // 观察错误信息
@@ -112,14 +105,6 @@ public class LoginFragment extends Fragment {
         }
 
         return true;
-    }
-
-    private void navigateToHome() {
-        // 设置主Activity的底部导航可见
-        if (getActivity() instanceof MainActivity) {
-            ((MainActivity) getActivity()).setBottomNavigationVisible(true);
-        }
-        navController.navigate(R.id.action_loginFragment_to_homeFragment);
     }
 
     @Override
